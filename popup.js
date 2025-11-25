@@ -6,28 +6,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { content, fileName, mimeType } = message.data;
     
     try {
-      // 在popup页面中使用DOM操作下载文件
-      const blob = new Blob([content], { type: mimeType });
-      const blobUrl = URL.createObjectURL(blob);
-      
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = fileName;
-      
-      // 添加到document并触发点击
-      document.body.appendChild(a);
-      a.click();
-      
-      // 清理
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
-      }, 100);
-      
-      // 显示成功消息
-      showStatus('文件保存成功！', 'success');
+      // 方法1：使用Data URL，不依赖Blob和URL.createObjectURL
+      try {
+        // 创建Data URL
+        const dataUrl = 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(content);
+        
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = fileName;
+        
+        // 添加到document并触发点击
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        setTimeout(() => {
+          document.body.removeChild(a);
+        }, 100);
+        
+        // 显示成功消息
+        showStatus('文件保存成功！', 'success');
+      } catch (dataUrlError) {
+        console.error('Data URL方法失败:', dataUrlError);
+        
+        // 方法2：降级到使用Blob但避免URL.createObjectURL
+        try {
+          const blob = new Blob([content], { type: mimeType });
+          
+          // 使用FileReader创建Data URL
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            try {
+              const dataUrl = reader.result;
+              
+              const a = document.createElement('a');
+              a.href = dataUrl;
+              a.download = fileName;
+              
+              document.body.appendChild(a);
+              a.click();
+              
+              setTimeout(() => {
+                document.body.removeChild(a);
+              }, 100);
+              
+              showStatus('文件保存成功！', 'success');
+            } catch (e) {
+              console.error('FileReader方法也失败:', e);
+              showError('文件下载失败: 无法创建下载链接');
+            }
+          };
+          reader.onerror = () => {
+            console.error('FileReader错误');
+            showError('文件下载失败: 无法读取文件内容');
+          };
+          reader.readAsDataURL(blob);
+        } catch (fallbackError) {
+          console.error('所有下载方法均失败:', fallbackError);
+          showError('文件下载失败: ' + fallbackError.message);
+        }
+      }
     } catch (error) {
-      console.error('文件下载失败:', error);
+      console.error('文件下载过程中发生异常:', error);
       showError('文件下载失败: ' + error.message);
     }
   }

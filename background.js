@@ -98,51 +98,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const fileName = `${sanitizedTitle}.md`;
     
     try {
-      // 创建Blob对象
-      const blob = new Blob([markdownContent], { type: 'text/markdown' });
-      const blobUrl = URL.createObjectURL(blob);
+      // 直接使用文本内容，不依赖Blob和URL.createObjectURL
       
-      // 方法1：尝试使用downloads API（优先）
-      chrome.downloads.download({
-        url: blobUrl,
-        filename: fileName,
-        saveAs: true // 显示保存对话框让用户选择目录
-      }, (downloadId) => {
-        if (chrome.runtime.lastError) {
-          console.error('使用downloads API下载失败:', chrome.runtime.lastError);
+      // 方法1：尝试直接通过downloads API的string数据
+      try {
+        // 使用Fetch API将文本转换为可下载的URL
+        fetch('data:text/markdown;charset=utf-8,' + encodeURIComponent(markdownContent))
+          .then(response => response.blob())
+          .then(blob => {
+            // 使用URL.createObjectURL的替代方案
+            // 创建一个Data URL直接用于下载
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const dataUrl = reader.result;
+              
+              chrome.downloads.download({
+                url: dataUrl,
+                filename: fileName,
+                saveAs: true // 显示保存对话框让用户选择目录
+              }, (downloadId) => {
+                if (chrome.runtime.lastError) {
+                  console.error('使用downloads API下载失败:', chrome.runtime.lastError);
+                  
+                  // 尝试方法2：直接向popup.js发送消息
+                  fallBackToPopupMethod();
+                } else {
+                  sendResponse({ success: true, downloadId });
+                }
+              });
+            };
+            reader.readAsDataURL(blob);
+          })
+          .catch(fetchError => {
+            console.error('Fetch API错误:', fetchError);
+            fallBackToPopupMethod();
+          });
+      } catch (downloadsError) {
+        console.error('Downloads API错误:', downloadsError);
+        fallBackToPopupMethod();
+      }
+      
+      // 辅助函数：回退到popup方法
+      function fallBackToPopupMethod() {
+        try {
+          console.log('使用popup.js处理文件下载');
+          // 直接向popup.js发送消息，让它处理文件下载
+          chrome.runtime.sendMessage({
+            type: 'DOWNLOAD_FILE',
+            data: {
+              content: markdownContent,
+              fileName: fileName,
+              mimeType: 'text/markdown'
+            }
+          });
           
-          // 尝试方法2：创建下载链接
-          try {
-            console.log('尝试使用替代方法下载');
-            // 由于Service Worker中不能直接操作DOM，使用更兼容的方法
-            // 向popup.js发送消息，让它处理文件下载
-            chrome.runtime.sendMessage({
-              type: 'DOWNLOAD_FILE',
-              data: {
-                content: markdownContent,
-                fileName: fileName,
-                mimeType: 'text/markdown'
-              }
-            });
-            
-            sendResponse({ success: true, message: '请在弹出界面中完成保存操作' });
-          } catch (fallbackError) {
-            console.error('替代下载方法也失败:', fallbackError);
-            sendResponse({ success: false, error: '所有下载方法均失败' });
-          } finally {
-            // 清理blob URL
-            setTimeout(() => {
-              URL.revokeObjectURL(blobUrl);
-            }, 100);
-          }
-        } else {
-          // downloads API成功，稍后清理
-          setTimeout(() => {
-            URL.revokeObjectURL(blobUrl);
-          }, 100);
-          sendResponse({ success: true, downloadId });
+          sendResponse({ success: true, message: '请在弹出界面中完成保存操作' });
+        } catch (fallbackError) {
+          console.error('替代下载方法也失败:', fallbackError);
+          sendResponse({ success: false, error: '所有下载方法均失败' });
         }
-      });
+      }
     } catch (e) {
       console.error('保存文件时发生异常:', e);
       sendResponse({ success: false, error: e.message });
