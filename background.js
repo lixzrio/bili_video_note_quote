@@ -86,6 +86,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SAVE_VIDEO_LINK') {
     const { title, url } = message.data;
     
+    console.log('[Background] 收到保存视频链接请求:', { title, url });
+    
     // 使用工具函数创建markdown内容
     const markdownContent = generateMarkdownContent({ title, url }, {
       includeMetadata: true,
@@ -97,51 +99,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const sanitizedTitle = sanitizeFileName(title);
     const fileName = `${sanitizedTitle}.md`;
     
+    console.log('[Background] 生成文件名:', fileName);
+    
     try {
       // 直接使用文本内容，不依赖Blob和URL.createObjectURL
       
-      // 方法1：尝试直接通过downloads API的string数据
+      // 优化：优先使用popup.js下载方法，因为它在Edge浏览器中更可靠
+      console.log('[Background] 优先使用popup.js下载方法（在Edge浏览器中更可靠）');
+      fallBackToPopupMethod();
+      
+      /*
+      // 方法1：使用Blob URL和downloads API下载（作为备选）
       try {
-        // 使用Fetch API将文本转换为可下载的URL
-        fetch('data:text/markdown;charset=utf-8,' + encodeURIComponent(markdownContent))
-          .then(response => response.blob())
-          .then(blob => {
-            // 使用URL.createObjectURL的替代方案
-            // 创建一个Data URL直接用于下载
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const dataUrl = reader.result;
-              
-              chrome.downloads.download({
-                url: dataUrl,
-                filename: fileName,
-                saveAs: true // 显示保存对话框让用户选择目录
-              }, (downloadId) => {
-                if (chrome.runtime.lastError) {
-                  console.error('使用downloads API下载失败:', chrome.runtime.lastError);
-                  
-                  // 尝试方法2：直接向popup.js发送消息
-                  fallBackToPopupMethod();
-                } else {
-                  sendResponse({ success: true, downloadId });
-                }
-              });
-            };
-            reader.readAsDataURL(blob);
-          })
-          .catch(fetchError => {
-            console.error('Fetch API错误:', fetchError);
+        console.log('[Background] 尝试使用downloads API下载');
+        
+        // 创建Blob对象
+        const blob = new Blob([markdownContent], { type: 'text/markdown' });
+        console.log('[Background] 创建Blob对象，大小:', blob.size, '字节');
+        
+        // 使用URL.createObjectURL创建Blob URL
+        const blobUrl = URL.createObjectURL(blob);
+        console.log('[Background] 生成Blob URL:', blobUrl);
+        
+        chrome.downloads.download({
+          url: blobUrl,
+          filename: fileName,
+          saveAs: false // 直接保存到浏览器默认下载路径，不显示对话框
+        }, (downloadId) => {
+          // 清理Blob URL
+          URL.revokeObjectURL(blobUrl);
+          console.log('[Background] 清理Blob URL');
+          
+          if (chrome.runtime.lastError) {
+            console.error('[Background] downloads API下载失败:', chrome.runtime.lastError);
+            console.error('[Background] 失败详情:', chrome.runtime.lastError.message);
+            
+            // 尝试方法2：直接向popup.js发送消息
+            console.log('[Background] 回退到popup.js下载方法');
             fallBackToPopupMethod();
-          });
+          } else {
+            console.log('[Background] downloads API下载成功，downloadId:', downloadId);
+            sendResponse({ success: true, downloadId });
+          }
+        });
       } catch (downloadsError) {
-        console.error('Downloads API错误:', downloadsError);
+        console.error('[Background] Downloads API错误:', downloadsError);
+        console.error('[Background] 错误详情:', downloadsError.message, downloadsError.stack);
+        console.log('[Background] 回退到popup.js下载方法');
         fallBackToPopupMethod();
       }
+      */
       
       // 辅助函数：回退到popup方法
       function fallBackToPopupMethod() {
         try {
-          console.log('使用popup.js处理文件下载');
+          console.log('[Background] 使用popup.js处理文件下载');
           // 直接向popup.js发送消息，让它处理文件下载
           chrome.runtime.sendMessage({
             type: 'DOWNLOAD_FILE',
@@ -152,14 +164,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
           });
           
+          console.log('[Background] 已发送DOWNLOAD_FILE消息到popup.js');
           sendResponse({ success: true, message: '请在弹出界面中完成保存操作' });
         } catch (fallbackError) {
-          console.error('替代下载方法也失败:', fallbackError);
+          console.error('[Background] 替代下载方法也失败:', fallbackError);
           sendResponse({ success: false, error: '所有下载方法均失败' });
         }
       }
     } catch (e) {
-      console.error('保存文件时发生异常:', e);
+      console.error('[Background] 保存文件时发生异常:', e);
       sendResponse({ success: false, error: e.message });
     }
     
