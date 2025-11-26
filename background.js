@@ -102,53 +102,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('[Background] 生成文件名:', fileName);
     
     try {
-      // 直接使用文本内容，不依赖Blob和URL.createObjectURL
-      
-      // 优化：优先使用popup.js下载方法，因为它在Edge浏览器中更可靠
-      console.log('[Background] 优先使用popup.js下载方法（在Edge浏览器中更可靠）');
+      // 优先使用popup.js下载方法，因为它在Edge浏览器中更可靠
+      console.log('[Background] 优先使用popup.js下载方法');
       fallBackToPopupMethod();
-      
-      /*
-      // 方法1：使用Blob URL和downloads API下载（作为备选）
-      try {
-        console.log('[Background] 尝试使用downloads API下载');
-        
-        // 创建Blob对象
-        const blob = new Blob([markdownContent], { type: 'text/markdown' });
-        console.log('[Background] 创建Blob对象，大小:', blob.size, '字节');
-        
-        // 使用URL.createObjectURL创建Blob URL
-        const blobUrl = URL.createObjectURL(blob);
-        console.log('[Background] 生成Blob URL:', blobUrl);
-        
-        chrome.downloads.download({
-          url: blobUrl,
-          filename: fileName,
-          saveAs: false // 直接保存到浏览器默认下载路径，不显示对话框
-        }, (downloadId) => {
-          // 清理Blob URL
-          URL.revokeObjectURL(blobUrl);
-          console.log('[Background] 清理Blob URL');
-          
-          if (chrome.runtime.lastError) {
-            console.error('[Background] downloads API下载失败:', chrome.runtime.lastError);
-            console.error('[Background] 失败详情:', chrome.runtime.lastError.message);
-            
-            // 尝试方法2：直接向popup.js发送消息
-            console.log('[Background] 回退到popup.js下载方法');
-            fallBackToPopupMethod();
-          } else {
-            console.log('[Background] downloads API下载成功，downloadId:', downloadId);
-            sendResponse({ success: true, downloadId });
-          }
-        });
-      } catch (downloadsError) {
-        console.error('[Background] Downloads API错误:', downloadsError);
-        console.error('[Background] 错误详情:', downloadsError.message, downloadsError.stack);
-        console.log('[Background] 回退到popup.js下载方法');
-        fallBackToPopupMethod();
-      }
-      */
       
       // 辅助函数：回退到popup方法
       function fallBackToPopupMethod() {
@@ -180,8 +136,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
-
-// 注意：sanitizeFileName函数已经在文件顶部实现
 
 // 初始化存储设置
 chrome.runtime.onInstalled.addListener(() => {

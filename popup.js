@@ -8,10 +8,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('[Popup] 收到DOWNLOAD_FILE消息:', { fileName, mimeType });
     
     try {
-      // 方法1：使用Data URL，不依赖Blob和URL.createObjectURL
+      // 方法1：直接使用Data URL下载
       console.log('[Popup] 尝试方法1：直接使用Data URL下载');
       try {
-        // 创建Data URL
         const dataUrl = 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(content);
         
         console.log('[Popup] 生成Data URL:', dataUrl.substring(0, 50) + '...');
@@ -21,8 +20,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         a.download = fileName;
         
         console.log('[Popup] 创建下载链接，文件名:', fileName);
-        
-        // 添加到document并触发点击
         document.body.appendChild(a);
         a.click();
         
@@ -34,25 +31,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           console.log('[Popup] 清理下载链接');
         }, 100);
         
-        // 显示成功消息
         showStatus('文件保存成功！', 'success');
         console.log('[Popup] 方法1下载成功');
       } catch (dataUrlError) {
         console.error('[Popup] 方法1（Data URL）失败:', dataUrlError);
         
-        // 方法2：降级到使用Blob但避免URL.createObjectURL
+        // 方法2：使用Blob和FileReader下载
         console.log('[Popup] 尝试方法2：使用Blob和FileReader下载');
         try {
           const blob = new Blob([content], { type: mimeType });
-          
           console.log('[Popup] 创建Blob对象，大小:', blob.size, '字节');
           
-          // 使用FileReader创建Data URL
           const reader = new FileReader();
           reader.onloadend = () => {
             try {
               const dataUrl = reader.result;
-              
               console.log('[Popup] FileReader生成Data URL:', dataUrl.substring(0, 50) + '...');
               
               const a = document.createElement('a');
@@ -60,7 +53,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               a.download = fileName;
               
               console.log('[Popup] 创建下载链接，文件名:', fileName);
-              
               document.body.appendChild(a);
               a.click();
               
