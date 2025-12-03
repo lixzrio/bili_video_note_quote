@@ -17,11 +17,11 @@ function generateMarkdownContent(videoInfo, options = {}) {
   
   switch (template) {
     case 'minimal':
-      content = `[${title}](${url})`;
+      content = `# ${title}\n#视频收藏\n\n[${title}](${url})`;
       break;
       
     case 'detailed':
-      content = `# ${title}\n\n## 视频信息\n\n- **标题**: ${title}\n- **链接**: ${url}\n`;
+      content = `# ${title}\n#视频收藏\n\n## 视频信息\n\n- **标题**: ${title}\n- **链接**: ${url}\n`;
       
       if (includeTimestamp) {
         content += `- **保存时间**: ${new Date().toLocaleString('zh-CN')}\n`;
@@ -31,7 +31,7 @@ function generateMarkdownContent(videoInfo, options = {}) {
       break;
       
     default:
-      content = `# ${title}\n\n## 视频链接\n\n${url}\n\n`;
+      content = `# ${title}\n#视频收藏\n\n## 视频链接\n\n${url}\n\n`;
       
       if (includeMetadata) {
         content += '## 引用信息\n\n';
