@@ -1,7 +1,10 @@
 // popup.js - 处理用户交互界面逻辑
 
+// 添加API兼容层，支持Chrome和Firefox
+const browserAPI = chrome || browser;
+
 // 监听来自background.js的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'DOWNLOAD_FILE') {
     const { content, fileName, mimeType } = message.data;
     
@@ -105,7 +108,7 @@ let currentVideoInfo = null;
 // 初始化函数
 function init() {
   // 获取当前活动标签页
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  browserAPI.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs.length === 0) {
       showError('无法获取当前标签页');
       return;
@@ -121,10 +124,10 @@ function init() {
     }
     
     // 向content script请求视频信息
-    chrome.tabs.sendMessage(activeTab.id, { type: 'GET_VIDEO_INFO' }, (response) => {
+    browserAPI.tabs.sendMessage(activeTab.id, { type: 'GET_VIDEO_INFO' }, (response) => {
       loadingEl.style.display = 'none';
       
-      if (chrome.runtime.lastError) {
+      if (browserAPI.runtime.lastError) {
         // 如果content script没有加载或出错，尝试注入它
         injectContentScript(activeTab.id);
         return;

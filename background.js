@@ -1,9 +1,10 @@
 // background.js - 处理权限和文件下载功能
 
-// 导入文件处理工具函数
-// 注意：在Service Worker中，需要使用动态导入或直接实现需要的函数，因为ES模块导入有限制
+// 添加API兼容层，支持Chrome和Firefox
+const browserAPI = chrome || browser;
 
-// 由于Service Worker环境限制，直接实现需要的函数
+// 导入文件处理工具函数
+// 注意：在Firefox扩展环境中，直接实现需要的函数
 function generateMarkdownContent(videoInfo, options = {}) {
   const { title, url } = videoInfo;
   const { 
@@ -82,7 +83,7 @@ function sanitizeFileName(name, options = {}) {
 }
 
 // 监听来自content script或popup的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SAVE_VIDEO_LINK') {
     const { title, url } = message.data;
     
@@ -102,7 +103,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('[Background] 生成文件名:', fileName);
     
     try {
-      // 优先使用popup.js下载方法，因为它在Edge浏览器中更可靠
+      // 优先使用popup.js下载方法，因为它在多浏览器中更可靠
       console.log('[Background] 优先使用popup.js下载方法');
       fallBackToPopupMethod();
       
@@ -111,7 +112,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try {
           console.log('[Background] 使用popup.js处理文件下载');
           // 直接向popup.js发送消息，让它处理文件下载
-          chrome.runtime.sendMessage({
+          browserAPI.runtime.sendMessage({
             type: 'DOWNLOAD_FILE',
             data: {
               content: markdownContent,
@@ -132,14 +133,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: e.message });
     }
     
-    // 告诉Chrome我们会异步发送响应
+    // 告诉浏览器我们会异步发送响应
     return true;
   }
 });
 
 // 初始化存储设置
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.sync.set({
+browserAPI.runtime.onInstalled.addListener(() => {
+  browserAPI.storage.sync.set({
     defaultSavePath: '',
     fileFormat: 'markdown'
   });
@@ -148,7 +149,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // 监听下载完成事件，可以添加通知等功能
-chrome.downloads.onChanged.addListener((downloadDelta) => {
+browserAPI.downloads.onChanged.addListener((downloadDelta) => {
   if (downloadDelta.state && downloadDelta.state.current === 'complete') {
     // 可以在这里添加下载完成的通知
     console.log('文件下载完成');

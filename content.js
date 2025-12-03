@@ -1,5 +1,8 @@
 // content.js - 在B站视频页面获取视频信息
 
+// 添加API兼容层，支持Chrome和Firefox
+const browserAPI = chrome || browser;
+
 console.log('B站视频笔记引用插件已加载');
 
 // 获取视频信息的函数
@@ -86,7 +89,7 @@ function getVideoIdFromUrl(url) {
 }
 
 // 监听来自popup的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_VIDEO_INFO') {
     const videoInfo = getVideoInfo();
     sendResponse(videoInfo);
